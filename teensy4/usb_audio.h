@@ -78,10 +78,8 @@ public:
 	}
 private:
 	static bool update_responsibility;
-	static audio_block_t *incoming_left;
-	static audio_block_t *incoming_right;
-	static audio_block_t *ready_left;
-	static audio_block_t *ready_right;
+	static audio_block_t *incoming[AUDIO_CHANNELS];
+	static audio_block_t *ready[AUDIO_CHANNELS];
 	static uint16_t incoming_count;
 	static uint8_t receive_flag;
 };
@@ -89,7 +87,7 @@ private:
 class AudioOutputUSB : public AudioStream
 {
 public:
-	AudioOutputUSB(void) : AudioStream(2, inputQueueArray) { begin(); }
+	AudioOutputUSB(void) : AudioStream(AUDIO_CHANNELS, inputQueueArray) { begin(); }
 	virtual void update(void);
 	void begin(void);
 	friend unsigned int usb_audio_transmit_callback(void);
@@ -100,7 +98,7 @@ private:
 	static audio_block_t *right_1st;
 	static audio_block_t *right_2nd;
 	static uint16_t offset_1st;
-	audio_block_t *inputQueueArray[2];
+	audio_block_t *inputQueueArray[AUDIO_CHANNELS];
 };
 #endif // __cplusplus
 
