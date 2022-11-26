@@ -762,9 +762,14 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define SEREMU_RX_INTERVAL    2
   #define AUDIO_INTERFACE	1	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     3
-  #define AUDIO_TX_SIZE         180
+  #define AUDIO_CHANNELS        8 // Must be a multiple of 2
+  #define AUDIO_FREQUENCY       44100
+  #define AUDIO_BIT_DEPTH       16
+  #define AUDIO_SAMPLE_BYTES    AUDIO_BIT_DEPTH / 8
+  #define AUDIO_TX_SIZE         (AUDIO_FREQUENCY / 1000U + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
+  // #define AUDIO_TX_SIZE         180
   #define AUDIO_RX_ENDPOINT     3
-  #define AUDIO_RX_SIZE         180
+  #define AUDIO_RX_SIZE         AUDIO_TX_SIZE
   #define AUDIO_SYNC_ENDPOINT	4
   #define ENDPOINT2_CONFIG	ENDPOINT_RECEIVE_INTERRUPT + ENDPOINT_TRANSMIT_INTERRUPT
   #define ENDPOINT3_CONFIG	ENDPOINT_RECEIVE_ISOCHRONOUS + ENDPOINT_TRANSMIT_ISOCHRONOUS
