@@ -37,6 +37,7 @@
 #include "imxrt.h"
 #include "avr_functions.h"
 #include "avr/pgmspace.h"
+#include "AudioStream.h"
 
 // At very slow CPU speeds, the OCRAM just isn't fast enough for
 // USB to work reliably.  But the precious/limited DTCM is.  So
@@ -69,8 +70,9 @@
 //   USB Device
 // **************************************************************
 
-#define LSB(n) ((n) & 255)
-#define MSB(n) (((n) >> 8) & 255)
+#define LSB(n) ((int)(n) & 255)
+#define MSB(n) (((int)(n) >> 8) & 255)
+#define HSB(n) (((int)(n) >> 16) & 255)
 
 #ifdef CDC_IAD_DESCRIPTOR
 #ifndef DEVICE_CLASS
