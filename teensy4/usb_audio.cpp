@@ -132,7 +132,6 @@ static void copy_to_buffers_redux(const uint32_t *src, audio_block_t *chans[AUDI
 
 	uint32_t i = 0;
 	while ((src < target)) {
-digitalToggleFast(1);
 		for (unsigned int j = 0; j < AUDIO_CHANNELS/2; j++) {
 			uint32_t n = *src++;
 			chans[j*2]->data[count+i] = n & 0xFFFF;
@@ -143,14 +142,13 @@ digitalToggleFast(1);
 		}
 		i++;
 	}
-digitalWriteFast(1,0);
 }
 
 // Called from the USB interrupt when an isochronous packet arrives
 // we must completely remove it from the receive buffer before returning
 //
 #if 1
-void usb_audio_receive_callbackx(unsigned int len)
+void usb_audio_receive_callback(unsigned int len)
 {
 	unsigned int count, avail;
 	audio_block_t *chans[AUDIO_CHANNELS];
@@ -228,13 +226,6 @@ void usb_audio_receive_callbackx(unsigned int len)
 		}
 	}
 	AudioInputUSB::incoming_count = count;
-}
-
-void usb_audio_receive_callback(unsigned int len)
-{
-digitalWriteFast(0,1);
-	usb_audio_receive_callbackx(len);
-digitalWriteFast(0,0);
 }
 #endif
 
