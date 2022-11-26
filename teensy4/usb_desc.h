@@ -763,11 +763,10 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define AUDIO_INTERFACE	1	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     3
   #define AUDIO_CHANNELS        8 // Must be a multiple of 2
-  #define AUDIO_FREQUENCY       44100
-  #define AUDIO_BIT_DEPTH       16
-  #define AUDIO_SAMPLE_BYTES    AUDIO_BIT_DEPTH / 8
+  #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
+  #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
+  #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
   #define AUDIO_TX_SIZE         (AUDIO_FREQUENCY / 1000U + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
-  // #define AUDIO_TX_SIZE         180
   #define AUDIO_RX_ENDPOINT     3
   #define AUDIO_RX_SIZE         AUDIO_TX_SIZE
   #define AUDIO_SYNC_ENDPOINT	4
@@ -806,9 +805,13 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define MIDI_RX_SIZE_480      512
   #define AUDIO_INTERFACE	3	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     5
-  #define AUDIO_TX_SIZE         180
+  #define AUDIO_CHANNELS        8 // Must be a multiple of 2
+  #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
+  #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
+  #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
+  #define AUDIO_TX_SIZE         (AUDIO_FREQUENCY / 1000U + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
   #define AUDIO_RX_ENDPOINT     5
-  #define AUDIO_RX_SIZE         180
+  #define AUDIO_RX_SIZE         AUDIO_TX_SIZE
   #define AUDIO_SYNC_ENDPOINT	6
   #define ENDPOINT2_CONFIG	ENDPOINT_RECEIVE_UNUSED + ENDPOINT_TRANSMIT_INTERRUPT
   #define ENDPOINT3_CONFIG	ENDPOINT_RECEIVE_BULK + ENDPOINT_TRANSMIT_BULK
@@ -848,9 +851,13 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define MIDI_RX_SIZE_480      512
   #define AUDIO_INTERFACE	3	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     5
-  #define AUDIO_TX_SIZE         180
+  #define AUDIO_CHANNELS        8 // Must be a multiple of 2
+  #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
+  #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
+  #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
+  #define AUDIO_TX_SIZE         (AUDIO_FREQUENCY / 1000U + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
   #define AUDIO_RX_ENDPOINT     5
-  #define AUDIO_RX_SIZE         180
+  #define AUDIO_RX_SIZE         AUDIO_TX_SIZE
   #define AUDIO_SYNC_ENDPOINT	6
   #define ENDPOINT2_CONFIG	ENDPOINT_RECEIVE_UNUSED + ENDPOINT_TRANSMIT_INTERRUPT
   #define ENDPOINT3_CONFIG	ENDPOINT_RECEIVE_BULK + ENDPOINT_TRANSMIT_BULK
@@ -930,9 +937,13 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define KEYMEDIA_INTERVAL     4
   #define AUDIO_INTERFACE	9	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     13
-  #define AUDIO_TX_SIZE         180
+  #define AUDIO_CHANNELS        8 // Must be a multiple of 2
+  #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
+  #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
+  #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
+  #define AUDIO_TX_SIZE         (AUDIO_FREQUENCY / 1000U + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
   #define AUDIO_RX_ENDPOINT     13
-  #define AUDIO_RX_SIZE         180
+  #define AUDIO_RX_SIZE         AUDIO_TX_SIZE
   #define AUDIO_SYNC_ENDPOINT	14
   #define MULTITOUCH_INTERFACE  12	// Touchscreen
   #define MULTITOUCH_ENDPOINT   15
