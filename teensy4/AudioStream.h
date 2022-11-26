@@ -34,7 +34,6 @@
 #ifndef __ASSEMBLER__
 #include <stdio.h>  // for NULL
 #include <string.h> // for memcpy
-
 #endif
 
 // AUDIO_BLOCK_SAMPLES determines how many samples the audio library processes
@@ -60,23 +59,23 @@
 
 #define AUDIO_SAMPLE_RATE AUDIO_SAMPLE_RATE_EXACT
 
-#define noAUDIO_DEBUG_CLASS // disable this class by default
-
-#ifndef __ASSEMBLER__
-class AudioStream;
-class AudioConnection;
-#if defined(AUDIO_DEBUG_CLASS)
-class AudioDebug;  // for testing only, never for public release
-#endif // defined(AUDIO_DEBUG_CLASS)
-
+#if !defined(__ASSEMBLER__)
 typedef struct audio_block_struct {
 	uint8_t  ref_count;
 	uint8_t  reserved1;
 	uint16_t memory_pool_index;
 	int16_t  data[AUDIO_BLOCK_SAMPLES];
 } audio_block_t;
+#endif // !defined(__ASSEMBLER__)
 
+#define noAUDIO_DEBUG_CLASS // disable this class by default
 
+#if defined(__cplusplus)
+class AudioStream;
+class AudioConnection;
+#if defined(AUDIO_DEBUG_CLASS)
+class AudioDebug;  // for testing only, never for public release
+#endif // defined(AUDIO_DEBUG_CLASS)
 
 class AudioConnection
 {
@@ -215,5 +214,5 @@ class AudioDebug
 };
 #endif // defined(AUDIO_DEBUG_CLASS)
 
-#endif // __ASSEMBLER__
+#endif // defined(__cplusplus)
 #endif // AudioStream_h
