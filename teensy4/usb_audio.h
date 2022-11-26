@@ -93,16 +93,16 @@ public:
 	friend unsigned int usb_audio_transmit_callback(void);
 private:
 	static bool update_responsibility;
-	/*
-	static audio_block_t *left_1st;
-	static audio_block_t *left_2nd;
-	static audio_block_t *right_1st;
-	static audio_block_t *right_2nd;
-	*/
 	static audio_block_t* outgoing[AUDIO_CHANNELS];
 	static audio_block_t* ready[AUDIO_CHANNELS];
 	static uint16_t offset_1st;
 	audio_block_t *inputQueueArray[AUDIO_CHANNELS];
+	
+	// variables to ensure correct sync when the sample rate
+	// involves a fractional number of samples per millisecond
+	static int normal_target; // usual number of samples to transmit
+	static int accumulator;   // accumulate sample count error
+	static int subtract;      // amount to subtract from accumulator every transmit (millisecond)
 };
 #endif // __cplusplus
 

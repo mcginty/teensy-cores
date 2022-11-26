@@ -92,7 +92,7 @@ void usb_audio_configure(void)
 	printf("usb_audio_configure\n");
 	usb_audio_underrun_count = 0;
 	usb_audio_overrun_count = 0;
-	feedback_accumulator = 739875226; // 44.1 * 2^24
+	feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT / 1000.0f) * 0x1000000; // samples/millisecond * 2^24
 	if (usb_high_speed) {
 		usb_audio_sync_nbytes = 4;
 		usb_audio_sync_rshift = 8;
@@ -277,26 +277,15 @@ void AudioInputUSB::update(void)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/*********** AudioOutputUSB *************/
 #if 1
 bool AudioOutputUSB::update_responsibility;
 audio_block_t * AudioOutputUSB::outgoing[AUDIO_CHANNELS]; // being transmitted by USB
 audio_block_t * AudioOutputUSB::ready[AUDIO_CHANNELS]; // next in line to be transmitted
 uint16_t AudioOutputUSB::offset_1st;
-
+int AudioOutputUSB::normal_target; 
+int AudioOutputUSB::accumulator;   
+int AudioOutputUSB::subtract;  
 /*DMAMEM*/ uint16_t usb_audio_transmit_buffer[AUDIO_TX_SIZE/2] __attribute__ ((used, aligned(32)));
 
 
@@ -318,6 +307,11 @@ void AudioOutputUSB::begin(void)
 		outgoing[i] = NULL;
 		ready[i] = NULL;
 	}
+	
+	// preset sample rate fine-tuning: assumes rate is an integer number of samples per second
+	normal_target = (int) (AUDIO_FREQUENCY / 1000); 		// at least this many samples per millisecond 
+	accumulator = 500; 										// start half-full
+	subtract = (int) AUDIO_FREQUENCY - normal_target*1000;	// accumulate error this fast
 }
 
 static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsigned int len)
@@ -440,15 +434,14 @@ static void interleave_from_blocks(int16_t* transmit_buffer,	//!< next free samp
 // no data to transmit
 unsigned int usb_audio_transmit_callback(void)
 {
-	static uint32_t count=5;
-	uint32_t avail, num, target, offset, len=0;
+	uint32_t avail, num, target = AudioOutputUSB::normal_target, offset, len=0;
 
-	// compute target number of samples we want to transmit
-	if (++count < 10) {   // TODO: dynamic adjust to match USB rate
-		target = 44;
-	} else {
-		count = 0;
-		target = 45;
+	// adjust target number of samples we want to transmit, if needed
+	AudioOutputUSB::accumulator -= AudioOutputUSB::subtract;
+	if (AudioOutputUSB::accumulator <= 0) // underflowed
+	{
+		target++; // need to transmit an extra sample this time
+		AudioOutputUSB::accumulator += 1000; // bump accumulator back above threshold
 	}
 	
 	while (len < target) // may take two iterations if not enough in outgoing[]
