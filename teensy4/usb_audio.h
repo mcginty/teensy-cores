@@ -68,7 +68,7 @@ public:
 	AudioInputUSB(void) : AudioStream(0, NULL) { begin(); }
 	virtual void update(void);
 	void begin(void);
-	friend void usb_audio_receive_callback(unsigned int len);
+	friend void usb_audio_receive_callbackx(unsigned int len);
 	friend int usb_audio_set_feature(void *stp, uint8_t *buf);
 	friend int usb_audio_get_feature(void *stp, uint8_t *data, uint32_t *datalen);
 	static struct usb_audio_features_struct features;
@@ -93,10 +93,14 @@ public:
 	friend unsigned int usb_audio_transmit_callback(void);
 private:
 	static bool update_responsibility;
+	/*
 	static audio_block_t *left_1st;
 	static audio_block_t *left_2nd;
 	static audio_block_t *right_1st;
 	static audio_block_t *right_2nd;
+	*/
+	static audio_block_t* outgoing[AUDIO_CHANNELS];
+	static audio_block_t* ready[AUDIO_CHANNELS];
 	static uint16_t offset_1st;
 	audio_block_t *inputQueueArray[AUDIO_CHANNELS];
 };

@@ -132,6 +132,7 @@ static void copy_to_buffers_redux(const uint32_t *src, audio_block_t *chans[AUDI
 
 	uint32_t i = 0;
 	while ((src < target)) {
+digitalToggleFast(1);
 		for (unsigned int j = 0; j < AUDIO_CHANNELS/2; j++) {
 			uint32_t n = *src++;
 			chans[j*2]->data[count+i] = n & 0xFFFF;
@@ -142,13 +143,14 @@ static void copy_to_buffers_redux(const uint32_t *src, audio_block_t *chans[AUDI
 		}
 		i++;
 	}
+digitalWriteFast(1,0);
 }
 
 // Called from the USB interrupt when an isochronous packet arrives
 // we must completely remove it from the receive buffer before returning
 //
 #if 1
-void usb_audio_receive_callback(unsigned int len)
+void usb_audio_receive_callbackx(unsigned int len)
 {
 	unsigned int count, avail;
 	audio_block_t *chans[AUDIO_CHANNELS];
@@ -227,6 +229,13 @@ void usb_audio_receive_callback(unsigned int len)
 	}
 	AudioInputUSB::incoming_count = count;
 }
+
+void usb_audio_receive_callback(unsigned int len)
+{
+digitalWriteFast(0,1);
+	usb_audio_receive_callbackx(len);
+digitalWriteFast(0,0);
+}
 #endif
 
 void AudioInputUSB::update(void)
@@ -293,10 +302,8 @@ void AudioInputUSB::update(void)
 
 #if 1
 bool AudioOutputUSB::update_responsibility;
-audio_block_t * AudioOutputUSB::left_1st;
-audio_block_t * AudioOutputUSB::left_2nd;
-audio_block_t * AudioOutputUSB::right_1st;
-audio_block_t * AudioOutputUSB::right_2nd;
+audio_block_t * AudioOutputUSB::outgoing[AUDIO_CHANNELS]; // being transmitted by USB
+audio_block_t * AudioOutputUSB::ready[AUDIO_CHANNELS]; // next in line to be transmitted
 uint16_t AudioOutputUSB::offset_1st;
 
 /*DMAMEM*/ uint16_t usb_audio_transmit_buffer[AUDIO_TX_SIZE/2] __attribute__ ((used, aligned(32)));
@@ -315,8 +322,11 @@ static void tx_event(transfer_t *t)
 void AudioOutputUSB::begin(void)
 {
 	update_responsibility = false;
-	left_1st = NULL;
-	right_1st = NULL;
+	for (int i =0;i<AUDIO_CHANNELS;i++)
+	{
+		outgoing[i] = NULL;
+		ready[i] = NULL;
+	}
 }
 
 static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsigned int len)
@@ -328,66 +338,111 @@ static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsi
 	}
 }
 
+/*
+ * On update(), we just receive the audio blocks and keep a set of pointers
+ * to them. The USB transmit callback will then copy them to the transmit buffer
+ * and release them at some point in the future.
+ */
 void AudioOutputUSB::update(void)
 {
-	audio_block_t *left, *right;
+	audio_block_t* chans[AUDIO_CHANNELS];
+	int i;
+	
 
-	// TODO: we shouldn't be writing to these......
-	//left = receiveReadOnly(0); // input 0 = left channel
-	//right = receiveReadOnly(1); // input 1 = right channel
-	left = receiveWritable(0); // input 0 = left channel
-	right = receiveWritable(1); // input 1 = right channel
-	if (usb_audio_transmit_setting == 0) {
-		if (left) release(left);
-		if (right) release(right);
-		if (left_1st) { release(left_1st); left_1st = NULL; }
-		if (left_2nd) { release(left_2nd); left_2nd = NULL; }
-		if (right_1st) { release(right_1st); right_1st = NULL; }
-		if (right_2nd) { release(right_2nd); right_2nd = NULL; }
-		offset_1st = 0;
-		return;
-	}
-	if (left == NULL) {
-		left = allocate();
-		if (left == NULL) {
-			if (right) release(right);
-			return;
+	// get the audio data
+	for (i=0;i<AUDIO_CHANNELS;i++)
+		chans[i] = receiveReadOnly(i);
+	
+	if (usb_audio_transmit_setting == 0) // not transmitting: dump all audio data
+	{
+		for (i=0;i<AUDIO_CHANNELS;i++)
+		{
+			if (NULL != chans[i]) 
+				release(chans[i]);
+			if (NULL != outgoing[i]) 
+			{
+				release(outgoing[i]);
+				outgoing[i] = NULL;
+			}
+				
+			if (NULL != ready[i]) 
+			{
+				release(ready[i]);
+				ready[i] = NULL;
+			}
 		}
-		memset(left->data, 0, sizeof(left->data));
-	}
-	if (right == NULL) {
-		right = allocate();
-		if (right == NULL) {
-			release(left);
-			return;
-		}
-		memset(right->data, 0, sizeof(right->data));
-	}
-	__disable_irq();
-	if (left_1st == NULL) {
-		left_1st = left;
-		right_1st = right;
 		offset_1st = 0;
-	} else if (left_2nd == NULL) {
-		left_2nd = left;
-		right_2nd = right;
-	} else {
-		// buffer overrun - PC is consuming too slowly
-		audio_block_t *discard1 = left_1st;
-		left_1st = left_2nd;
-		left_2nd = left;
-		audio_block_t *discard2 = right_1st;
-		right_1st = right_2nd;
-		right_2nd = right;
-		offset_1st = 0; // TODO: discard part of this data?
-		//serial_print("*");
-		release(discard1);
-		release(discard2);
 	}
-	__enable_irq();
+	else
+	{
+		// ensure every channel has a real audio block, even if it's silent
+		for (i=0;i<AUDIO_CHANNELS;i++)
+		{
+			if (NULL == chans[i]) // sent NULL: make implied silence into real data
+			{
+				chans[i] = allocate();
+				if (NULL != chans[i])
+					memset(chans[i]->data, 0, sizeof(chans[i]->data));
+				else
+					break; // no block available, exit early
+			}
+		}
+		
+		if (i >= AUDIO_CHANNELS) // no invalid audio, queue all for transmission
+		{
+			__disable_irq();
+			
+			if (NULL == outgoing[0]) // just (re-)starting
+			{
+				for (i=0;i<AUDIO_CHANNELS;i++)
+					outgoing[i] = chans[i];
+				offset_1st = 0;
+			} 
+			else if (NULL == ready[0]) 
+			{
+				for (i=0;i<AUDIO_CHANNELS;i++)
+					ready[i] = chans[i];
+			} 
+			else 
+			{
+				// buffer overrun - PC is consuming too slowly
+				for (i=0;i<AUDIO_CHANNELS;i++)
+				{
+					audio_block_t* discard = outgoing[i];
+					outgoing[i] = ready[i];
+					ready[i] = chans[i];
+					release(discard);
+				}
+				offset_1st = 0; // TODO: discard part of this data?
+			}
+			__enable_irq();
+		}
+		else // some invalid audio, can't queue any - discard it all
+		{
+			for (i=0;i<AUDIO_CHANNELS;i++)
+				if (NULL != chans[i])
+					release(chans[i]);
+			
+		}
+	}
+		
 }
 
 
+static void interleave_from_blocks(int16_t* transmit_buffer,	//!< next free sample in USB transmit buffer
+								audio_block_t** outgoing, //!< array of pointers to source audio blocks
+								int chans, //!< number of entries in the array
+								int offset, //!< sample# of next "fresh" sample
+								int num) //!< number of samples to copy
+{
+	for (int j=0;j<num;j++)
+	{
+		for (int i=0;i<chans;i++)
+			*transmit_buffer++ = outgoing[i]->data[offset];
+		offset++;
+	}
+}
+								
 // Called from the USB interrupt when ready to transmit another
 // isochronous packet.  If we place data into the transmit buffer,
 // the return is the number of bytes.  Otherwise, return 0 means
@@ -396,46 +451,56 @@ unsigned int usb_audio_transmit_callback(void)
 {
 	static uint32_t count=5;
 	uint32_t avail, num, target, offset, len=0;
-	audio_block_t *left, *right;
 
+	// compute target number of samples we want to transmit
 	if (++count < 10) {   // TODO: dynamic adjust to match USB rate
 		target = 44;
 	} else {
 		count = 0;
 		target = 45;
 	}
-	while (len < target) {
-		num = target - len;
-		left = AudioOutputUSB::left_1st;
-		if (left == NULL) {
+	
+	while (len < target) // may take two iterations if not enough in outgoing[]
+	{
+		num = target - len; // number of samples left to transmit
+		if (NULL == AudioOutputUSB::outgoing[0]) 
+		{
 			// buffer underrun - PC is consuming too quickly
-			memset(usb_audio_transmit_buffer + len, 0, num * 4);
+			memset(usb_audio_transmit_buffer + len, 0, num * AUDIO_CHANNELS * sizeof AudioOutputUSB::outgoing[0]->data[0]);
 			//serial_print("%");
 			break;
 		}
-		right = AudioOutputUSB::right_1st;
 		offset = AudioOutputUSB::offset_1st;
 
 		avail = AUDIO_BLOCK_SAMPLES - offset;
 		if (num > avail) num = avail;
 
-		copy_from_buffers((uint32_t *)usb_audio_transmit_buffer + len,
-			left->data + offset, right->data + offset, num);
+		//copy_from_buffers((uint32_t *)usb_audio_transmit_buffer + len,
+		//	left->data + offset, right->data + offset, num);
+		
+		// have to cast type of transmit buffer, because although samples are actually
+		// signed integers, some other modules say they're unsigned...
+		interleave_from_blocks((int16_t*) usb_audio_transmit_buffer + len * AUDIO_CHANNELS,
+								AudioOutputUSB::outgoing, AUDIO_CHANNELS, offset,
+								num);
 		len += num;
 		offset += num;
-		if (offset >= AUDIO_BLOCK_SAMPLES) {
-			AudioStream::release(left);
-			AudioStream::release(right);
-			AudioOutputUSB::left_1st = AudioOutputUSB::left_2nd;
-			AudioOutputUSB::left_2nd = NULL;
-			AudioOutputUSB::right_1st = AudioOutputUSB::right_2nd;
-			AudioOutputUSB::right_2nd = NULL;
+		if (offset >= AUDIO_BLOCK_SAMPLES) 
+		{
+			for (int i=0;i<AUDIO_CHANNELS;i++)
+			{
+				AudioStream::release(AudioOutputUSB::outgoing[i]);
+				AudioOutputUSB::outgoing[i] = AudioOutputUSB::ready[i];
+				AudioOutputUSB::ready[i] = NULL;
+			}
 			AudioOutputUSB::offset_1st = 0;
-		} else {
+		} 
+		else 
+		{
 			AudioOutputUSB::offset_1st = offset;
 		}
 	}
-	return target * 4;
+	return target * AUDIO_CHANNELS * sizeof AudioOutputUSB::outgoing[0]->data[0];
 }
 #endif
 
