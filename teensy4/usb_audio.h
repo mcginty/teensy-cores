@@ -84,6 +84,18 @@ private:
 	static uint8_t receive_flag;
 };
 
+// Only define higher channel count USB objects
+// if the descriptor permits them
+#if AUDIO_CHANNELS >= 4
+class AudioInputUSBQuad : public AudioInputUSB {};
+#if AUDIO_CHANNELS >= 6
+class AudioInputUSBHex  : public AudioInputUSB {};
+#if AUDIO_CHANNELS >= 8
+class AudioInputUSBOct  : public AudioInputUSB {};
+#endif // AUDIO_CHANNELS >= 8
+#endif // AUDIO_CHANNELS >= 6
+#endif // AUDIO_CHANNELS >= 4
+
 class AudioOutputUSB : public AudioStream
 {
 public:
@@ -93,13 +105,30 @@ public:
 	friend unsigned int usb_audio_transmit_callback(void);
 private:
 	static bool update_responsibility;
-	static audio_block_t *left_1st;
-	static audio_block_t *left_2nd;
-	static audio_block_t *right_1st;
-	static audio_block_t *right_2nd;
+	static audio_block_t* outgoing[AUDIO_CHANNELS];
+	static audio_block_t* ready[AUDIO_CHANNELS];
 	static uint16_t offset_1st;
 	audio_block_t *inputQueueArray[AUDIO_CHANNELS];
+	
+	// variables to ensure correct sync when the sample rate
+	// involves a fractional number of samples per millisecond
+	static int normal_target; // usual number of samples to transmit
+	static int accumulator;   // accumulate sample count error
+	static int subtract;      // amount to subtract from accumulator every transmit (millisecond)
 };
+
+// Only define higher channel count USB objects
+// if the descriptor permits them
+#if AUDIO_CHANNELS >= 4
+class AudioOutputUSBQuad : public AudioOutputUSB {};
+#if AUDIO_CHANNELS >= 6
+class AudioOutputUSBHex  : public AudioOutputUSB {};
+#if AUDIO_CHANNELS >= 8
+class AudioOutputUSBOct  : public AudioOutputUSB {};
+#endif // AUDIO_CHANNELS >= 8
+#endif // AUDIO_CHANNELS >= 6
+#endif // AUDIO_CHANNELS >= 4
+
 #endif // __cplusplus
 
 #endif // AUDIO_INTERFACE
