@@ -84,6 +84,18 @@ private:
 	static uint8_t receive_flag;
 };
 
+// Only define higher channel count USB objects
+// if the descriptor permits them
+#if AUDIO_CHANNELS >= 4
+class AudioInputUSBQuad : public AudioInputUSB {};
+#if AUDIO_CHANNELS >= 6
+class AudioInputUSBHex  : public AudioInputUSB {};
+#if AUDIO_CHANNELS >= 8
+class AudioInputUSBOct  : public AudioInputUSB {};
+#endif // AUDIO_CHANNELS >= 8
+#endif // AUDIO_CHANNELS >= 6
+#endif // AUDIO_CHANNELS >= 4
+
 class AudioOutputUSB : public AudioStream
 {
 public:
@@ -104,6 +116,19 @@ private:
 	static int accumulator;   // accumulate sample count error
 	static int subtract;      // amount to subtract from accumulator every transmit (millisecond)
 };
+
+// Only define higher channel count USB objects
+// if the descriptor permits them
+#if AUDIO_CHANNELS >= 4
+class AudioOutputUSBQuad : public AudioOutputUSB {};
+#if AUDIO_CHANNELS >= 6
+class AudioOutputUSBHex  : public AudioOutputUSB {};
+#if AUDIO_CHANNELS >= 8
+class AudioOutputUSBOct  : public AudioOutputUSB {};
+#endif // AUDIO_CHANNELS >= 8
+#endif // AUDIO_CHANNELS >= 6
+#endif // AUDIO_CHANNELS >= 4
+
 #endif // __cplusplus
 
 #endif // AUDIO_INTERFACE
