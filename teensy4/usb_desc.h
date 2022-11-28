@@ -766,7 +766,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
   #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
   #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
-  #define AUDIO_TX_SIZE         (AUDIO_FREQUENCY / 1000U + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
+  #define AUDIO_TX_SIZE         ((int)(AUDIO_FREQUENCY / 1000U) + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
   #define AUDIO_RX_ENDPOINT     3
   #define AUDIO_RX_SIZE         AUDIO_TX_SIZE
   #define AUDIO_SYNC_ENDPOINT	4
@@ -809,7 +809,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
   #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
   #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
-  #define AUDIO_TX_SIZE         (AUDIO_FREQUENCY / 1000U + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
+  #define AUDIO_TX_SIZE         ((int)(AUDIO_FREQUENCY / 1000U) + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
   #define AUDIO_RX_ENDPOINT     5
   #define AUDIO_RX_SIZE         AUDIO_TX_SIZE
   #define AUDIO_SYNC_ENDPOINT	6
@@ -855,7 +855,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
   #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
   #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
-  #define AUDIO_TX_SIZE         (AUDIO_FREQUENCY / 1000U + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
+  #define AUDIO_TX_SIZE         ((int)(AUDIO_FREQUENCY / 1000U) + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
   #define AUDIO_RX_ENDPOINT     5
   #define AUDIO_RX_SIZE         AUDIO_TX_SIZE
   #define AUDIO_SYNC_ENDPOINT	6
@@ -941,7 +941,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
   #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
   #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
-  #define AUDIO_TX_SIZE         (AUDIO_FREQUENCY / 1000U + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
+  #define AUDIO_TX_SIZE         ((int)(AUDIO_FREQUENCY / 1000U) + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
   #define AUDIO_RX_ENDPOINT     13
   #define AUDIO_RX_SIZE         AUDIO_TX_SIZE
   #define AUDIO_SYNC_ENDPOINT	14
