@@ -774,6 +774,32 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define ENDPOINT3_CONFIG	ENDPOINT_RECEIVE_ISOCHRONOUS + ENDPOINT_TRANSMIT_ISOCHRONOUS
   #define ENDPOINT4_CONFIG	ENDPOINT_RECEIVE_UNUSED + ENDPOINT_TRANSMIT_ISOCHRONOUS
 
+  // Associated constants and helper functions for USB Audio
+  #define AUDIO_SAMPLE_FREQ(frq) (uint8_t)(frq), (uint8_t)((frq >> 8)), (uint8_t)((frq >> 16))
+  // Max packet size: (freq / 1000 + extra_samples) * channels * bytes_per_sample
+  // e.g. (48000 / 1000 + 1) * 2(stereo) * 3(24bit) = 388
+  #define AUDIO_PACKET_SZE_24B(frq) (uint8_t)(((frq / 1000U + 1) * 4U * 3U) & 0xFFU), \
+                                    (uint8_t)((((frq / 1000U + 1) * 4U * 3U) >> 8) & 0xFFU)
+  #define AUDIO_CONTROL_MUTE 0x01
+  #define AUDIO_CONTROL_VOL 0x02
+  #define AUDIO_FORMAT_TYPE_I 0x01
+  #define USB_DESC_TYPE_INTERFACE 0x04
+  #define USB_DESC_TYPE_ENDPOINT 0x05
+
+  #define CS_DESC_TYPE_INTERFACE 0x24
+  #define CS_DESC_TYPE_ENDPOINT 0x25
+  #define CS_DESC_SUBTYPE_FORMAT 0x02
+  #define CS_DESC_SUBTYPE_EP_GENERAL 0x01
+  #define CS_DESC_SUBTYPE_AS_GENERAL 0x01
+  #define CS_DESC_SUBTYPE_INPUT_TERMINAL 0x02
+  #define CS_DESC_SUBTYPE_OUTPUT_TERMINAL 0x03
+  #define CS_DESC_SUBTYPE_FEATURE_UNIT 0x06
+
+  #define AUDIO_EP_IN_MASK 0x80 // A mask used to indicate a specified endpoint ID is an input
+  #define AUDIO_EP_TYPE_ISOC 0x01 // Isochronous Endpoint Type
+  #define AUDIO_EP_TYPE_ADAPTIVE 0x08 // Isochronous Endpoint Type
+  #define AUDIO_EP_TYPE_ASYNC 0x04 // Isochronous Endpoint Type
+
 #elif defined(USB_MIDI_AUDIO_SERIAL)
   #define VENDOR_ID		0x16C0
   #define PRODUCT_ID		0x048A

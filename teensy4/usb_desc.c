@@ -1389,16 +1389,6 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 #endif // KEYMEDIA_INTERFACE
 
 #ifdef AUDIO_INTERFACE
-#define AUDIO_SAMPLE_FREQ(frq) (uint8_t)(frq), (uint8_t)((frq >> 8)), (uint8_t)((frq >> 16))
-
- // Max packet size: (freq / 1000 + extra_samples) * channels * bytes_per_sample
- // e.g. (48000 / 1000 + 1) * 2(stereo) * 3(24bit) = 388
-#define AUDIO_PACKET_SZE_24B(frq) (uint8_t)(((frq / 1000U + 1) * 4U * 3U) & 0xFFU), \
-                                  (uint8_t)((((frq / 1000U + 1) * 4U * 3U) >> 8) & 0xFFU)
-
-#define AUDIO_CONTROL_MUTE 0x01
-#define AUDIO_CONTROL_VOL 0x02
-
       // configuration for 480 Mbit/sec speed
       // IAD (interface association descriptor), USB ECN, Table 9-Z
       // USB IAD allows the device to group interfaces that belong to a function.
@@ -1446,35 +1436,35 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       //
       // See USB DCD for Terminal Types: https://www.usb.org/sites/default/files/termt10.pdf
       12,                   // bLength
-      0x24,                 // bDescriptorType, 0x24 = CS_INTERFACE
-      0x02,                 // bDescriptorSubType, 2 = INPUT_TERMINAL
+      CS_DESC_TYPE_INTERFACE,                 // bDescriptorType, 0x24 = CS_INTERFACE
+      CS_DESC_SUBTYPE_INPUT_TERMINAL,                 // bDescriptorSubType, 2 = INPUT_TERMINAL
       1,                    // bTerminalID (0x00 is reserved and invalid)
       0x02, 0x06,           // wTerminalType, 0x0602 = Digital Audio
       0,                    // bAssocTerminal, 0 = unidirectional
       AUDIO_CHANNELS,       // bNrChannels 
       0x03, 0x00,           // wChannelConfig, 0x0003 = Left & Right Front
-      // TODO(mcginty): should the above 2 fields always be the sameas the other channel configs?
+      // TODO(mcginty): should the above 2 fields always be the same as the other channel configs?
       0,                    // iChannelNames
       0,                    // iTerminal, optional string descriptor
 
       // Output Terminal Descriptor
       // USB DCD for Audio Devices 1.0, Table 4-4, page 40
       // This terminal is connected to the AudioStreaming interface.
-      9,                    // bLength
-      0x24,                 // bDescriptorType, 0x24 = CS_INTERFACE
-      3,                    // bDescriptorSubtype, 3 = OUTPUT_TERMINAL
-      2,                    // bTerminalID
-      0x01, 0x01,           // wTerminalType, 0x0101 = USB_STREAMING
-      0,                    // bAssocTerminal, 0 = unidirectional
-      1,                    // bCSourceID, connected to input terminal, ID=1
-      0,                    // iTerminal, optional string descriptor
+      9,                               // bLength
+      CS_DESC_TYPE_INTERFACE,          // bDescriptorType, 0x24 = CS_INTERFACE
+      CS_DESC_SUBTYPE_OUTPUT_TERMINAL, // bDescriptorSubtype, 3 = OUTPUT_TERMINAL
+      2,                               // bTerminalID
+      0x01, 0x01,                      // wTerminalType, 0x0101 = USB_STREAMING
+      0,                               // bAssocTerminal, 0 = unidirectional
+      1,                               // bSourceID, connected to input terminal, ID=1
+      0,                               // iTerminal, optional string descriptor
 
       // Input Terminal Descriptor
       // USB DCD for Audio Devices 1.0, Table 4-3, page 39
       // This terminal is connected to the AudioStreaming interface.
       12,                   // bLength
-      0x24,                 // bDescriptorType, 0x24 = CS_INTERFACE
-      2,                    // bDescriptorSubType, 2 = INPUT_TERMINAL
+      CS_DESC_TYPE_INTERFACE,                 // bDescriptorType, 0x24 = CS_INTERFACE
+      CS_DESC_SUBTYPE_INPUT_TERMINAL,                    // bDescriptorSubType, 2 = INPUT_TERMINAL
       3,                    // bTerminalID
       0x01, 0x01,           // wTerminalType, 0x0101 = USB_STREAMING
       0,                    // bAssocTerminal, 0 = unidirectional
@@ -1485,8 +1475,8 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 
       // Feature Unit Descriptor (Volume)
       10,                   // bLength
-      0x24,                 // bDescriptorType = CS_INTERFACE
-      0x06,                 // bDescriptorSubType = FEATURE_UNIT
+      CS_DESC_TYPE_INTERFACE,                 // bDescriptorType = CS_INTERFACE
+      CS_DESC_SUBTYPE_FEATURE_UNIT,                 // bDescriptorSubType = FEATURE_UNIT
       0x31,                 // bUnitID TODO(mcginty): why 0x31?
       0x03,                 // bSourceID (Input Terminal)
       0x01,                 // bControlSize (each channel is 1 byte, 3 channels)
@@ -1505,19 +1495,19 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       //
       // See USB DCD for Terminal Types: https://www.usb.org/sites/default/files/termt10.pdf
       9,                    // bLength
-      0x24,                 // bDescriptorType, 0x24 = CS_INTERFACE
-      3,                    // bDescriptorSubtype, 3 = OUTPUT_TERMINAL
+      CS_DESC_TYPE_INTERFACE,                 // bDescriptorType, 0x24 = CS_INTERFACE
+      CS_DESC_SUBTYPE_OUTPUT_TERMINAL,                    // bDescriptorSubtype, 3 = OUTPUT_TERMINAL
       4,                    // bTerminalID
       0x02, 0x06,           // wTerminalType, 0x0602 = Digital Audio
       0,                    // bAssocTerminal, 0 = unidirectional
-      0x31,                 // bCSourceID, connected to feature, ID=31
+      0x31,                 // bSourceID, connected to feature, ID=31
       0,                    // iTerminal, optional string descriptor
 
       // Standard AS (AudioStreaming) Interface Descriptor
       // USB DCD for Audio Devices 1.0, Section 4.5.1, Table 4-18, page 59
       // Alternate 0: default setting, disabled zero bandwidth
       //
-      // This is for the OUTPUT capabilities (HOST => DEVICE)
+      // This is for the DEVICE TO HOST streaming
       //
       // This descriptor needs to have two "alternate settings"
       // 0: the default setting, "disabled mode", zero bandwidth, no endpoints
@@ -1545,7 +1535,7 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       // Class-Specific AS Interface Descriptor
       // USB DCD for Audio Devices 1.0, Section 4.5.2, Table 4-19, page 60
       //
-      // This is for the OUTPUT streaming (HOST => DEVICE)
+      // This is for the DEVICE TO HOST streaming
       7,                    // bLength
       0x24,                 // bDescriptorType = CS_INTERFACE
       1,                    // bDescriptorSubtype, 1 = AS_GENERAL
@@ -1554,20 +1544,6 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       // TODO(mcginty): ^ what is this 3ms from?
       0x01, 0x00,           // wFormatTag, 0x0001 = PCM
 
-      #define AUDIO_FORMAT_TYPE_I 0x01
-      #define USB_DESC_TYPE_INTERFACE 0x04
-      #define USB_DESC_TYPE_ENDPOINT 0x05
-
-      #define CS_DESC_TYPE_INTERFACE 0x24
-      #define CS_DESC_TYPE_ENDPOINT 0x25
-      #define CS_DESC_SUBTYPE_FORMAT 0x02
-      #define CS_DESC_SUBTYPE_EP_GENERAL 0x01
-      #define CS_DESC_SUBTYPE_AS_GENERAL 0x01
-
-      #define AUDIO_EP_IN_MASK 0x80 // A mask used to indicate a specified endpoint ID is an input
-      #define AUDIO_EP_TYPE_ISOC 0x01 // Isochronous Endpoint Type
-      #define AUDIO_EP_TYPE_ADAPTIVE 0x08 // Isochronous Endpoint Type
-      #define AUDIO_EP_TYPE_ASYNC 0x04 // Isochronous Endpoint Type
       // Type I Format Descriptor
       // USB DCD for Audio Data Formats 1.0, Section 2.2.5, Table 2-1, page 10
       // See: https://usb.org/sites/default/files/frmts10.pdf
@@ -1587,7 +1563,7 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       USB_DESC_TYPE_ENDPOINT,                       // bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
       AUDIO_TX_EP | AUDIO_EP_IN_MASK,               // bEndpointAddress
       AUDIO_EP_TYPE_ISOC | AUDIO_EP_TYPE_ADAPTIVE,  // bmAttributes
-      // TODO(mcginty): above SHOULD be ASYNC, not ADAPTIVE
+      // TODO(mcginty): above should probably be ASYNC, not ADAPTIVE
       LSB(AUDIO_TX_SIZE), MSB(AUDIO_TX_SIZE),       // wMaxPacketSize
       1,                                            // bInterval, must be set to 1
       0,                                            // bRefresh TODO(mcginty): double-check on bRefresh
@@ -1606,7 +1582,7 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       // USB DCD for Audio Devices 1.0, Section 4.5.1, Table 4-18, page 59
       // Alternate 0: default setting, disabled zero bandwidth
       //
-      // This is for the INPUT capabilities (DEVICE => HOST)
+      // This is for the HOST TO DEVICE streaming
       //
       // This descriptor needs to have two "alternate settings"
       // 0: the default setting, "disabled mode", zero bandwidth, no endpoints
@@ -1680,8 +1656,8 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       0x11,                                     // bmAttributes = isochronous, feedback
       0x04, 0x00,                               // wMaxPacketSize, 4 bytes
       0x01,                                     // bInterval, must be set to 1
-      0x07,                                     // bRefresh, rate of feedback, as power of 2, eg. 2^7 = 128ms
-      // TODO(jake): do we want a 128ms feedback here?
+      0x07,                                     // bRefresh, rate of feedback, as power of 2
+      // TODO(jake): what bRefresh feedback rate do we want here?
       0x00,                                     // bSynchAddress
 #endif
 
