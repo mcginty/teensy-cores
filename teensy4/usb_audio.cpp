@@ -77,13 +77,13 @@ volatile uint32_t sync_counter = 0, callback_counter = 0, samples_counted = 0;
 static void rx_event(transfer_t *t)
 {
 	if (t) {
-		int len = AUDIO_RX_SIZE - ((rx_transfer.status >> 16) & 0x7FFF);
+		int len = AUDIO_PACKET_SIZE(AUDIO_RX_SIZE) - ((rx_transfer.status >> 16) & 0x7FFF);
 		// printf("rx %u\n", len);
 		usb_audio_receive_callback(len);
 	}
 	usb_prepare_transfer(&rx_transfer, rx_buffer, AUDIO_RX_SIZE, 0);
 	arm_dcache_delete(&rx_buffer, AUDIO_RX_SIZE);
-	usb_receive(AUDIO_RX_EP, &rx_transfer);
+	usb_receive(AUDIO_RX_ENDPOINT, &rx_transfer);
 }
 
 static void sync_event(transfer_t *t)
@@ -130,13 +130,13 @@ void usb_audio_configure(void)
 		usb_audio_sync_rshift = 10;
 	}
 	memset(&rx_transfer, 0, sizeof(rx_transfer));
-	usb_config_rx_iso(AUDIO_RX_EP, AUDIO_RX_SIZE, 1, rx_event);
+	usb_config_rx_iso(AUDIO_RX_ENDPOINT, AUDIO_RX_SIZE, 1, rx_event);
 	rx_event(NULL);
 	memset(&sync_transfer, 0, sizeof(sync_transfer));
 	usb_config_tx_iso(AUDIO_SYNC_ENDPOINT, usb_audio_sync_nbytes, 1, sync_event);
 	sync_event(NULL);
 	memset(&tx_transfer, 0, sizeof(tx_transfer));
-	usb_config_tx_iso(AUDIO_TX_EP, AUDIO_TX_SIZE, 1, tx_event);
+	usb_config_tx_iso(AUDIO_TX_ENDPOINT, AUDIO_TX_SIZE, 1, tx_event);
 	tx_event(NULL);
 }
 
@@ -316,7 +316,7 @@ void AudioInputUSB::update(void)
 	for (int i = 0; i < AUDIO_CHANNELS; i++) {
 		if (!chans[i]) {
 			usb_audio_underrun_count++;
-			printf("v UNDERRUN v\n"); // buffer underrun - PC sending too slow
+			// printf("#"); // buffer underrun - PC sending too slow
 			// if (f) feedback_accumulator += 3500;
 			break;
 		}
@@ -354,7 +354,7 @@ static void tx_event(transfer_t *t)
 	usb_audio_sync_feedback = feedback_accumulator >> usb_audio_sync_rshift;
 	usb_prepare_transfer(&tx_transfer, usb_audio_transmit_buffer, len, 0);
 	arm_dcache_flush_delete(usb_audio_transmit_buffer, len);
-	usb_transmit(AUDIO_TX_EP, &tx_transfer);
+	usb_transmit(AUDIO_TX_ENDPOINT, &tx_transfer);
 }
 
 
@@ -368,9 +368,10 @@ void AudioOutputUSB::begin(void)
 	}
 	
 	// preset sample rate fine-tuning: assumes rate is an integer number of samples per second
-	normal_target = (int) (AUDIO_FREQUENCY / 1000); 		// at least this many samples per millisecond 
-	accumulator = 500; 										// start half-full
-	subtract = (int) AUDIO_FREQUENCY - normal_target*1000;	// accumulate error this fast
+	int txFreq = 1000 * (1 << (4 - AUDIO_INTERVAL(AUDIO_TX_SIZE)));
+	normal_target = (int) ((AUDIO_FREQUENCY) / txFreq); 		// at least this many samples per millisecond 
+	accumulator = txFreq / 2; 									// start half-full
+	subtract = (int) (AUDIO_FREQUENCY) - normal_target*txFreq;	// accumulate error this fast
 }
 
 static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsigned int len)
@@ -543,7 +544,7 @@ unsigned int usb_audio_transmit_callback(void)
 			AudioOutputUSB::offset_1st = offset;
 		}
 	}
-	return target * AUDIO_CHANNELS * sizeof AudioOutputUSB::outgoing[0]->data[0];
+	return len * AUDIO_CHANNELS * sizeof AudioOutputUSB::outgoing[0]->data[0];
 }
 #endif
 
