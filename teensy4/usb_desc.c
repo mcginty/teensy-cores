@@ -1561,11 +1561,11 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       // USB DCD for Audio Devices 1.0, Section 4.6.1.1, Table 4-20, page 61-62
       9,                                            // bLength
       USB_DESC_TYPE_ENDPOINT,                       // bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
-      AUDIO_TX_EP | AUDIO_EP_IN_MASK,               // bEndpointAddress
+      AUDIO_TX_ENDPOINT | AUDIO_EP_IN_MASK,         // bEndpointAddress
       AUDIO_EP_TYPE_ISOC | AUDIO_EP_TYPE_ADAPTIVE,  // bmAttributes
       // TODO(mcginty): above should probably be ASYNC, not ADAPTIVE
-      LSB(AUDIO_TX_SIZE), MSB(AUDIO_TX_SIZE),       // wMaxPacketSize
-      AUDIO_POLLING_INTERVAL,                       // bInterval, 4 = 2^4 = 8 microframes = 1ms
+	LSB(AUDIO_PACKET_SIZE(AUDIO_TX_SIZE)), MSB(AUDIO_PACKET_SIZE(AUDIO_TX_SIZE)),	// wMaxPacketSize
+	AUDIO_INTERVAL(AUDIO_TX_SIZE),	// bInterval, 4 = every 8 micro-frames
       0,                                            // bRefresh TODO(mcginty): double-check on bRefresh
       0,                                            // bSynchAddress
 
@@ -1632,10 +1632,10 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       // USB DCD for Audio Devices 1.0, Section 4.6.1.1, Table 4-20, page 61-62
       9,                                        // bLength
       USB_DESC_TYPE_ENDPOINT,                   // bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
-      AUDIO_RX_EP,                              // bEndpointAddress
+      AUDIO_RX_ENDPOINT,                        // bEndpointAddress
       AUDIO_EP_TYPE_ISOC | AUDIO_EP_TYPE_ASYNC, // bmAttributes = isochronous, asynchronous
-      LSB(AUDIO_RX_SIZE), MSB(AUDIO_RX_SIZE),   // wMaxPacketSize
-      AUDIO_POLLING_INTERVAL,                   // bInterval, 4 = 2^4 = 8 microframes = 1ms
+	LSB(AUDIO_PACKET_SIZE(AUDIO_RX_SIZE)), MSB(AUDIO_PACKET_SIZE(AUDIO_RX_SIZE)),	// wMaxPacketSize
+	AUDIO_INTERVAL(AUDIO_RX_SIZE),	// bInterval, 4 = every 8 micro-frames
       0x00,                                     // bRefresh
       AUDIO_SYNC_ENDPOINT | AUDIO_EP_IN_MASK,   // bSynchAddress
 
@@ -2590,7 +2590,7 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
       // USB DCD for Audio Devices 1.0, Section 4.6.1.1, Table 4-20, page 61-62
       9,                                // bLength
       5,                                // bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
-      AUDIO_TX_EP | 0x80,               // bEndpointAddress
+      AUDIO_TX_ENDPOINT | 0x80,         // bEndpointAddress
       0x09,                             // bmAttributes = isochronous, adaptive
       LSB(AUDIO_TX_SIZE), MSB(AUDIO_TX_SIZE),      // wMaxPacketSize
       1,                                // bInterval, 1 = every frame
@@ -2649,7 +2649,7 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
       // USB DCD for Audio Devices 1.0, Section 4.6.1.1, Table 4-20, page 61-62
       9,                                // bLength
       5,                                // bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
-      AUDIO_RX_EP,                      // bEndpointAddress
+      AUDIO_RX_ENDPOINT,                // bEndpointAddress
       0x05,                             // bmAttributes = isochronous, asynchronous
       LSB(AUDIO_RX_SIZE), MSB(AUDIO_RX_SIZE),      // wMaxPacketSize
       1,                                // bInterval, 1 = every frame

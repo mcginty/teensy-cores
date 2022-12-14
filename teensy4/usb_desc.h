@@ -47,6 +47,7 @@
 #define ENDPOINT_RECEIVE_BULK		0x000000C8
 #define ENDPOINT_RECEIVE_INTERRUPT	0x000000CC
 
+
 /*
 Each group of #define lines below corresponds to one of the
 settings in the Tools > USB Type menu.  This file defines what
@@ -761,13 +762,13 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define SEREMU_RX_SIZE        32
   #define SEREMU_RX_INTERVAL    2
   #define AUDIO_INTERFACE	1	// Audio (uses 3 consecutive interfaces)
-  #define AUDIO_TX_EP     3
+  #define AUDIO_TX_ENDPOINT     3
   #define AUDIO_CHANNELS        8 // Must be a multiple of 2
   #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
   #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
   #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
   #define AUDIO_TX_SIZE         ((int)(AUDIO_FREQUENCY / 1000U) + 1) * AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES
-  #define AUDIO_RX_EP     3
+  #define AUDIO_RX_ENDPOINT     3
   #define AUDIO_RX_SIZE         AUDIO_TX_SIZE
   #define AUDIO_SYNC_ENDPOINT	4
   #define AUDIO_POLLING_INTERVAL 1 // The bInterval polling value in microframes, 4 => 2^4 => 8 microframes == 1ms
@@ -775,31 +776,6 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define ENDPOINT3_CONFIG	ENDPOINT_RECEIVE_ISOCHRONOUS + ENDPOINT_TRANSMIT_ISOCHRONOUS
   #define ENDPOINT4_CONFIG	ENDPOINT_RECEIVE_UNUSED + ENDPOINT_TRANSMIT_ISOCHRONOUS
 
-  // Associated constants and helper functions for USB Audio
-  #define AUDIO_SAMPLE_FREQ(frq) (uint8_t)(frq), (uint8_t)((frq >> 8)), (uint8_t)((frq >> 16))
-  // Max packet size: (freq / 1000 + extra_samples) * channels * bytes_per_sample
-  // e.g. (48000 / 1000 + 1) * 2(stereo) * 3(24bit) = 388
-  #define AUDIO_PACKET_SZE_24B(frq) (uint8_t)(((frq / 1000U + 1) * 4U * 3U) & 0xFFU), \
-                                    (uint8_t)((((frq / 1000U + 1) * 4U * 3U) >> 8) & 0xFFU)
-  #define AUDIO_CONTROL_MUTE 0x01
-  #define AUDIO_CONTROL_VOL 0x02
-  #define AUDIO_FORMAT_TYPE_I 0x01
-  #define USB_DESC_TYPE_INTERFACE 0x04
-  #define USB_DESC_TYPE_ENDPOINT 0x05
-
-  #define CS_DESC_TYPE_INTERFACE 0x24
-  #define CS_DESC_TYPE_ENDPOINT 0x25
-  #define CS_DESC_SUBTYPE_FORMAT 0x02
-  #define CS_DESC_SUBTYPE_EP_GENERAL 0x01
-  #define CS_DESC_SUBTYPE_AS_GENERAL 0x01
-  #define CS_DESC_SUBTYPE_INPUT_TERMINAL 0x02
-  #define CS_DESC_SUBTYPE_OUTPUT_TERMINAL 0x03
-  #define CS_DESC_SUBTYPE_FEATURE_UNIT 0x06
-
-  #define AUDIO_EP_IN_MASK 0x80 // A mask used to indicate a specified endpoint ID is an input
-  #define AUDIO_EP_TYPE_ISOC 0x01 // Isochronous Endpoint Type
-  #define AUDIO_EP_TYPE_ADAPTIVE 0x08 // Isochronous Endpoint Type
-  #define AUDIO_EP_TYPE_ASYNC 0x04 // Isochronous Endpoint Type
 
 #elif defined(USB_MIDI_AUDIO_SERIAL)
   #define VENDOR_ID		0x16C0
@@ -993,6 +969,39 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define ENDPOINT15_CONFIG	ENDPOINT_TRANSMIT_ONLY
 
 #endif
+
+// Avoid the need to maintain audio-related macros for every build type:
+#if defined(AUDIO_INTERFACE) // signals one of the audio-capable builds is in use
+	#define AUDIO_PACKET_SIZE(sz) (((sz) <= 1024)?(sz):((sz)/2))
+	#define AUDIO_INTERVAL(sz)    (((sz) <= 1024)?4:3)
+	
+	// Associated constants and helper functions for USB Audio
+	#define AUDIO_SAMPLE_FREQ(frq) (uint8_t)(frq), (uint8_t)((frq >> 8)), (uint8_t)((frq >> 16))
+	// Max packet size: (freq / 1000 + extra_samples) * channels * bytes_per_sample
+	// e.g. (48000 / 1000 + 1) * 2(stereo) * 3(24bit) = 388
+	#define AUDIO_PACKET_SZE_24B(frq) (uint8_t)(((frq / 1000U + 1) * 4U * 3U) & 0xFFU), \
+									(uint8_t)((((frq / 1000U + 1) * 4U * 3U) >> 8) & 0xFFU)
+	#define AUDIO_CONTROL_MUTE 0x01
+	#define AUDIO_CONTROL_VOL 0x02
+	#define AUDIO_FORMAT_TYPE_I 0x01
+	#define USB_DESC_TYPE_INTERFACE 0x04
+	#define USB_DESC_TYPE_ENDPOINT 0x05
+
+	#define CS_DESC_TYPE_INTERFACE 0x24
+	#define CS_DESC_TYPE_ENDPOINT 0x25
+	#define CS_DESC_SUBTYPE_FORMAT 0x02
+	#define CS_DESC_SUBTYPE_EP_GENERAL 0x01
+	#define CS_DESC_SUBTYPE_AS_GENERAL 0x01
+	#define CS_DESC_SUBTYPE_INPUT_TERMINAL 0x02
+	#define CS_DESC_SUBTYPE_OUTPUT_TERMINAL 0x03
+	#define CS_DESC_SUBTYPE_FEATURE_UNIT 0x06
+
+	#define AUDIO_EP_IN_MASK 0x80 // A mask used to indicate a specified endpoint ID is an input
+	#define AUDIO_EP_TYPE_ISOC 0x01 // Isochronous Endpoint Type
+	#define AUDIO_EP_TYPE_ADAPTIVE 0x08 // Isochronous Endpoint Type
+	#define AUDIO_EP_TYPE_ASYNC 0x04 // Isochronous Endpoint Type
+#endif // defined(AUDIO_INTERFACE)
+
 
 #ifdef USB_DESC_LIST_DEFINE
 #if defined(NUM_ENDPOINTS) && NUM_ENDPOINTS > 0
