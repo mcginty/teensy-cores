@@ -39,6 +39,29 @@ bool AudioInputUSB::update_responsibility;
 audio_block_t * AudioInputUSB::incoming[AUDIO_CHANNELS];
 audio_block_t * AudioInputUSB::ready[AUDIO_CHANNELS];
 
+#define SINK_DATARATE_BUF_SIZE 8
+
+// The witnessed data rate of incoming samples
+volatile int16_t sink_datarate_buf[SINK_DATARATE_BUF_SIZE] = {0};
+volatile uint32_t sink_datarate_idx;
+
+uint32_t report_sink_offset(int16_t new_rate) {
+	sink_datarate_buf[sink_datarate_idx++ % SINK_DATARATE_BUF_SIZE] = new_rate;
+}
+
+float get_sink_pressure() {
+	if (sink_datarate_idx < SINK_DATARATE_BUF_SIZE) {
+		return 0.0f;
+	}
+
+	float avg = 0.0f;
+	for (uint16_t i; i < SINK_DATARATE_BUF_SIZE; i++) {
+		avg += (float)sink_datarate_buf[i] / (float)SINK_DATARATE_BUF_SIZE;
+	}
+
+	return avg;
+}
+
 // The current amount that the incoming (pending) buffer is full. Between 0 and AUDIO_BLOCK_SAMPLES.
 uint16_t AudioInputUSB::incoming_count; 
 
@@ -67,6 +90,10 @@ uint8_t usb_audio_sync_rshift;
 // Fs: The *actual* sample rate currently witnessed, as measured relative to the USB (micro)frames SOF.
 //     so, for Full-Speed that would be every 1ms, and for High-Speed every 125us (8x faster).
 // Ff: The *desired* data rate to achieve a target sample rate.
+//
+// In this case, the feedback accumulator is updated based on how quickly samples are consumed down the
+// audio chain (for example, by an I2S output), which is why it's modified in the "update" function,
+// and read in the sync_even function.
 uint32_t feedback_accumulator;
 
 volatile uint32_t usb_audio_underrun_count;
@@ -108,7 +135,6 @@ void usb_audio_configure(void)
 	usb_audio_underrun_count = 0;
 	usb_audio_overrun_count = 0;
 
-
 	// The feedback accumulator keeps track of how many samples have been seen
 	// based on the USB Host's clock, which for USB FS triggers every 1ms, and for
 	// USB HS triggers 8 times per 1ms (every 125us).
@@ -117,8 +143,7 @@ void usb_audio_configure(void)
 	// to the host, which expects:
 	//   if High-Speed (480Mbps): An unsigned 10.10 fixed point binary, aligned as a 3-byte 10.14.
 	//   if Full-Speed ( 12Mbps): An unsigned 10.14 fixed point binary, aligned as a 4-byte 16.16.
-	// thus, the 
-	//
+	// and shifting down a dynamic number of bytes to match that format.
 	feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT / 1000.0f) * 0x1000000; // samples/millisecond * 2^24
 	// USB 2.0 High-Speed uses a 4-byte feedback format,
 	// where Full Speed uses a 3-byte format.
@@ -148,11 +173,6 @@ void AudioInputUSB::begin(void)
 		ready[i] = NULL;
 	}
 	receive_flag = 0;
-	// update_responsibility = update_setup();
-	// TODO: update responsibility is tough, partly because the USB
-	// interrupts aren't sychronous to the audio library block size,
-	// but also because the PC may stop transmitting data, which
-	// means we no longer get receive callbacks from usb.c
 	update_responsibility = false;
 }
 static void copy_to_buffers(const uint32_t *src, audio_block_t *chans[AUDIO_CHANNELS], unsigned int count, unsigned int len) 
@@ -194,14 +214,6 @@ void usb_audio_receive_callback(unsigned int len)
 	len /= AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES;
 	samples_counted += len;
 	callback_counter++;
-	// if (callback_counter % 12000 == 0) {
-	// 	char c[10];
-	// 	float average = (float)samples_counted / (float)callback_counter;
-	// 	snprintf(c, 9, "%.2f", average * 8.0f * 1000.0f);
-	// 	printf("%s\n", c);
-	// 	samples_counted = 0;
-	// 	callback_counter = 0;
-	// }
 
 	// A moving pointer to the USB receive buffer as we eat it up.
 	data_orig = (const uint32_t *)rx_buffer;
@@ -246,7 +258,10 @@ void usb_audio_receive_callback(unsigned int len)
 						// If there were remaining bytes of audio, they will
 						// be dropped because there is nowhere to put them.
 						usb_audio_overrun_count++;
-						printf("^ OVERRUN ^\n");
+						char c[20];
+						float accumulator = (float)(feedback_accumulator >> 8) / (float)(1<<16);
+						snprintf(c, 20, "%.6f", accumulator);
+						printf("^ OVERRUN, accumulator: %skHz, len: %d, i: %d\n", c, len, i);
 						//serial_phex(len);
 					}
 					return;
@@ -256,7 +271,6 @@ void usb_audio_receive_callback(unsigned int len)
 			for (int i = 0; i < AUDIO_CHANNELS; i++) {
 				AudioInputUSB::ready[i] = chans[i];
 			}
-			//if (AudioInputUSB::update_responsibility) AudioStream::update_all();
 			for (int i = 0; i < AUDIO_CHANNELS; i++) {
 				chans[i] = AudioStream::allocate();
 				if (chans[i] == NULL) {
@@ -304,20 +318,35 @@ void AudioInputUSB::update(void)
 	__enable_irq();
 	if (f) {
 		// Did we receive more or less than half 
-		int diff = AUDIO_BLOCK_SAMPLES/2 - (int)c;
-		feedback_accumulator += diff * 1;
-		//uint32_t feedback = (feedback_accumulator >> 8) + diff * 100;
-		//usb_audio_sync_feedback = feedback;
 
-		// printf(diff >= 0 ? "." : "^");
+		// The amount "off from target" that we are.
+		// diff < 0   Receiving more samples than our downstream is consuming, risk of overrun.
+		//            We must request a lower Ff (desired data rate).
+		// diff > 0   Receiving fewer samples than our downstream is consuming, risk of underrun.
+		//            Must request a higher Ff (desired data rate).
+		int diff = AUDIO_BLOCK_SAMPLES/2 - (int)c;
+
+		report_sink_offset(diff);
+		float pressure = get_sink_pressure();
+		float pressure_multiplier = 1.0f + (pressure / (AUDIO_BLOCK_SAMPLES / 2) / 300);
+		if (pressure_multiplier > 1.2f || pressure_multiplier < 0.8f) {
+			char c[100];
+			snprintf(c, 99, "pressure: %.5f, mult: %.5f",
+				pressure, pressure_multiplier);
+			printf("%s\n", c);
+		}
+		feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT * pressure_multiplier / 1000.0f) * 0x1000000;
+		feedback_accumulator += diff;
 	}
 	//serial_phex(c);
 	//serial_print(".");
 	for (int i = 0; i < AUDIO_CHANNELS; i++) {
 		if (!chans[i]) {
 			usb_audio_underrun_count++;
-			printf("v UNDERRUN v\n"); // buffer underrun - PC sending too slow
-			// if (f) feedback_accumulator += 3500;
+			char c[20];
+			float accumulator = (float)(feedback_accumulator >> 8) / (float)(1<<16);
+			snprintf(c, 20, "%.6f", accumulator);
+			printf("v UNDERRUN, accumulator: %skHz, i: %d\n", c, i); // buffer underrun - PC sending too slow
 			break;
 		}
 	}
