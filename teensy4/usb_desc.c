@@ -1565,7 +1565,7 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       AUDIO_EP_TYPE_ISOC | AUDIO_EP_TYPE_ADAPTIVE,  // bmAttributes
       // TODO(mcginty): above should probably be ASYNC, not ADAPTIVE
       LSB(AUDIO_TX_SIZE), MSB(AUDIO_TX_SIZE),       // wMaxPacketSize
-      1,                                            // bInterval, must be set to 1
+      AUDIO_POLLING_INTERVAL,                       // bInterval, 4 = 2^4 = 8 microframes = 1ms
       0,                                            // bRefresh TODO(mcginty): double-check on bRefresh
       0,                                            // bSynchAddress
 
@@ -1635,7 +1635,7 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       AUDIO_RX_EP,                              // bEndpointAddress
       AUDIO_EP_TYPE_ISOC | AUDIO_EP_TYPE_ASYNC, // bmAttributes = isochronous, asynchronous
       LSB(AUDIO_RX_SIZE), MSB(AUDIO_RX_SIZE),   // wMaxPacketSize
-      0x01,                                     // bInterval
+      AUDIO_POLLING_INTERVAL,                   // bInterval, 4 = 2^4 = 8 microframes = 1ms
       0x00,                                     // bRefresh
       AUDIO_SYNC_ENDPOINT | AUDIO_EP_IN_MASK,   // bSynchAddress
 
@@ -1655,7 +1655,7 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       AUDIO_SYNC_ENDPOINT | AUDIO_EP_IN_MASK,   // bEndpointAddress
       0x11,                                     // bmAttributes = isochronous, feedback
       0x04, 0x00,                               // wMaxPacketSize, 4 bytes
-      0x01,                                     // bInterval, must be set to 1
+      AUDIO_POLLING_INTERVAL,                   // bInterval, 4 = 2^4 = 8 microframes = 1ms
       0x07,                                     // bRefresh, rate of feedback, as power of 2
       // TODO(jake): what bRefresh feedback rate do we want here?
       0x00,                                     // bSynchAddress
