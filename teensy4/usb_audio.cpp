@@ -81,9 +81,6 @@ float get_sink_pressure() {
 		avg += (float)sink_datarate_buf[i] / (float)SINK_DATARATE_BUF_SIZE;
 	}
 
-	// if (fabs(avg) > 0.01) {
-	// }
-
 	return avg;
 }
 
@@ -96,6 +93,10 @@ float get_sink_pressure() {
 // audio chain (for example, by an I2S output), which is why it's modified in the "update" function,
 // and read in the sync_even function.
 volatile uint32_t feedback_accumulator;
+
+// A flag to mark the initial buffer has been filled enough once USB data has started
+// to consider any underflows *actual* underflows.
+volatile uint8_t buffer_floodgate_open = 0;
 
 volatile uint32_t usb_audio_underrun_count = 0, usb_audio_overrun_count = 0;
 volatile uint32_t sync_counter = 0, callback_counter = 0;
@@ -125,6 +126,7 @@ static void sync_event(transfer_t *t)
 void usb_audio_configure(void)
 {
 	printf("usb_audio_configure\n");
+	buffer_floodgate_open = 0;
 	usb_audio_underrun_count = 0;
 	usb_audio_overrun_count = 0;
 
@@ -263,10 +265,10 @@ void usb_audio_receive_callback(unsigned int len)
 				}
 			}
 			send:
-			// CORE_PIN6_PORTSET = CORE_PIN6_BITMASK;
 			for (int i = 0; i < AUDIO_CHANNELS; i++) {
 				AudioInputUSB::ready[i] = chans[i];
 			}
+			buffer_floodgate_open = 1;
 			for (int i = 0; i < AUDIO_CHANNELS; i++) {
 				chans[i] = AudioStream::allocate();
 				if (chans[i] == NULL) {
@@ -284,7 +286,6 @@ void usb_audio_receive_callback(unsigned int len)
 				AudioInputUSB::incoming[i] = chans[i];
 			}
 			count = 0;
-			// CORE_PIN6_PORTCLEAR = CORE_PIN6_BITMASK;
 		} else {
 			for (int i = 0; i < AUDIO_CHANNELS; i++) {
 				if (AudioInputUSB::ready[i]) {
@@ -316,7 +317,7 @@ void AudioInputUSB::update(void)
 	uint8_t f = receive_flag;
 	receive_flag = 0;
 	__enable_irq();
-	if (f) {
+	if (f && usb_audio_receive_setting) {
 		// Did we receive more or less than half 
 
 		// The amount "off from target" that we are.
@@ -342,17 +343,21 @@ void AudioInputUSB::update(void)
 		// }
 		feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT * pressure_multiplier / 1000.0f) * 0x1000000;
 		feedback_accumulator += diff;
+	} else if (!usb_audio_receive_setting) {
+		feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT / 1000.0f) * 0x1000000;
 	}
 	//serial_phex(c);
 	//serial_print(".");
-	for (int i = 0; i < AUDIO_CHANNELS; i++) {
-		if (!chans[i]) {
-			usb_audio_underrun_count++;
-			char c[20];
-			float accumulator = (float)(feedback_accumulator >> 8) / (float)(1<<16);
-			snprintf(c, 20, "%.6f", accumulator);
-			printf("v UNDERRUN, accumulator: %skHz, i: %d\n", c, i); // buffer underrun - PC sending too slow
-			break;
+	if (usb_audio_receive_setting && buffer_floodgate_open) {
+		for (int i = 0; i < AUDIO_CHANNELS; i++) {
+			if (!chans[i]) {
+				usb_audio_underrun_count++;
+				char c[20];
+				float accumulator = (float)(feedback_accumulator >> 8) / (float)(1<<16);
+				snprintf(c, 20, "%.6f", accumulator);
+				printf("v UNDERRUN, accumulator: %skHz, i: %d, receive? %d\n", c, i, usb_audio_receive_setting); // buffer underrun - PC sending too slow
+				break;
+			}
 		}
 	}
 	for (int i = 0; i < AUDIO_CHANNELS; i++) {
@@ -361,12 +366,9 @@ void AudioInputUSB::update(void)
 			release(chans[i]);
 		}
 	}
-	// for (int i = 2; i < AUDIO_CHANNELS; i++) {
-	// 	if (chans[i]) {
-	// 		release(chans[i]);
-	// 	}
+	// if (!usb_audio_receive_setting) {
+	// 	buffer_floodgate_open = 0;
 	// }
-	// CORE_PIN6_PORTCLEAR = CORE_PIN6_BITMASK;
 	CORE_PIN5_PORTCLEAR = CORE_PIN5_BITMASK;
 }
 
