@@ -39,28 +39,6 @@ bool AudioInputUSB::update_responsibility;
 audio_block_t * AudioInputUSB::incoming[AUDIO_CHANNELS];
 audio_block_t * AudioInputUSB::ready[AUDIO_CHANNELS];
 
-#define SINK_DATARATE_BUF_SIZE 8
-
-// The witnessed data rate of incoming samples
-volatile int16_t sink_datarate_buf[SINK_DATARATE_BUF_SIZE] = {0};
-volatile uint32_t sink_datarate_idx;
-
-uint32_t report_sink_offset(int16_t new_rate) {
-	sink_datarate_buf[sink_datarate_idx++ % SINK_DATARATE_BUF_SIZE] = new_rate;
-}
-
-float get_sink_pressure() {
-	if (sink_datarate_idx < SINK_DATARATE_BUF_SIZE) {
-		return 0.0f;
-	}
-
-	float avg = 0.0f;
-	for (uint16_t i; i < SINK_DATARATE_BUF_SIZE; i++) {
-		avg += (float)sink_datarate_buf[i] / (float)SINK_DATARATE_BUF_SIZE;
-	}
-
-	return avg;
-}
 
 // The current amount that the incoming (pending) buffer is full. Between 0 and AUDIO_BLOCK_SAMPLES.
 uint16_t AudioInputUSB::incoming_count; 
@@ -86,6 +64,29 @@ uint8_t usb_audio_transmit_setting=0;
 uint8_t usb_audio_sync_nbytes;
 uint8_t usb_audio_sync_rshift;
 
+#define SINK_DATARATE_BUF_SIZE 2
+volatile int16_t sink_datarate_buf[SINK_DATARATE_BUF_SIZE] = {0};
+volatile uint32_t sink_datarate_idx;
+uint32_t report_sink_offset(int16_t new_rate) {
+	sink_datarate_buf[sink_datarate_idx++ % SINK_DATARATE_BUF_SIZE] = new_rate;
+}
+float get_sink_pressure() {
+	char c[100];
+	if (sink_datarate_idx < SINK_DATARATE_BUF_SIZE) {
+		return 0.0f;
+	}
+
+	float avg = 0.0f;
+	for (uint16_t i; i < SINK_DATARATE_BUF_SIZE; i++) {
+		avg += (float)sink_datarate_buf[i] / (float)SINK_DATARATE_BUF_SIZE;
+	}
+
+	// if (fabs(avg) > 0.01) {
+	// }
+
+	return avg;
+}
+
 // In the USB documentation:
 // Fs: The *actual* sample rate currently witnessed, as measured relative to the USB (micro)frames SOF.
 //     so, for Full-Speed that would be every 1ms, and for High-Speed every 125us (8x faster).
@@ -94,12 +95,10 @@ uint8_t usb_audio_sync_rshift;
 // In this case, the feedback accumulator is updated based on how quickly samples are consumed down the
 // audio chain (for example, by an I2S output), which is why it's modified in the "update" function,
 // and read in the sync_even function.
-uint32_t feedback_accumulator;
+volatile uint32_t feedback_accumulator;
 
-volatile uint32_t usb_audio_underrun_count;
-volatile uint32_t usb_audio_overrun_count;
-
-volatile uint32_t sync_counter = 0, callback_counter = 0, samples_counted = 0;
+volatile uint32_t usb_audio_underrun_count = 0, usb_audio_overrun_count = 0;
+volatile uint32_t sync_counter = 0, callback_counter = 0;
 
 static void rx_event(transfer_t *t)
 {
@@ -118,12 +117,6 @@ static void sync_event(transfer_t *t)
 	sync_counter++;
 	// USB 2.0 Specification, 5.12.4.2 Feedback, pages 73-75
 	usb_audio_sync_feedback = feedback_accumulator >> usb_audio_sync_rshift;
-	// if (sync_counter % 4000 == 0) {
-	// 	char c[10];
-	// 	float feedback_float = (float)usb_audio_sync_feedback / (float)(1<<16);
-	// 	snprintf(c, 9, "%.6f", feedback_float);
-	// 	printf("sync %s\n", c); // too slow, can't print this much
-	// }
 	usb_prepare_transfer(&sync_transfer, &usb_audio_sync_feedback, usb_audio_sync_nbytes, 0);
 	arm_dcache_flush(&usb_audio_sync_feedback, usb_audio_sync_nbytes);
 	usb_transmit(AUDIO_SYNC_ENDPOINT, &sync_transfer);
@@ -204,15 +197,13 @@ void usb_audio_receive_callback(unsigned int len)
 	const uint16_t *data;
 	const uint32_t *data_orig;
 
-
 	AudioInputUSB::receive_flag = 1;
 	// Let `len` now represent the number of "frames" of audio
 	// One frame includes exactly one sample per channel.
 	//
 	// For example, if we have 8 channels of 16-bit audio,
-	// one frame would be 16 bytes long.
+	// one frame would be 16 bytes long, 8 * 2 bytes.
 	len /= AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES;
-	samples_counted += len;
 	callback_counter++;
 
 	// A moving pointer to the USB receive buffer as we eat it up.
@@ -227,7 +218,7 @@ void usb_audio_receive_callback(unsigned int len)
 	for (uint32_t i = 0; i < AUDIO_CHANNELS; i++) {
 		if (AudioInputUSB::incoming[i] == NULL) {
 			chans[i] = AudioStream::allocate();
-			if(chans[i] == NULL) return;
+			if(chans[i] == NULL) goto cleanup;
 			AudioInputUSB::incoming[i] = chans[i];
 		}
 	}
@@ -236,16 +227,20 @@ void usb_audio_receive_callback(unsigned int len)
 		if (len < avail) {
 			// We can fit the entire incoming buffer in one AudioStream block,
 			// so we simply copy the whole thing in.
+			CORE_PIN6_PORTSET = CORE_PIN6_BITMASK;
 			copy_to_buffers(data_orig, chans, count, len);
+			CORE_PIN6_PORTCLEAR = CORE_PIN6_BITMASK;
 			AudioInputUSB::incoming_count = count + len;
-			return;
+			goto cleanup;
 		} else if (avail > 0) {
 			// Otherwise, we will be finishing up filling a block, and can
 			// flush it to the next consumer in the chain.
 			//
 			// We'll need to finish consuming the data after that, though,
 			// which is why this looks complicated.
+			CORE_PIN6_PORTSET = CORE_PIN6_BITMASK;
 			copy_to_buffers(data_orig, chans, count, avail);
+			CORE_PIN6_PORTCLEAR = CORE_PIN6_BITMASK;
 			data_orig += avail * AUDIO_CHANNELS / AUDIO_SAMPLE_BYTES;
 			len -= avail;
 			for (int i = 0; i < AUDIO_CHANNELS; i++) {
@@ -264,10 +259,11 @@ void usb_audio_receive_callback(unsigned int len)
 						printf("^ OVERRUN, accumulator: %skHz, len: %d, i: %d\n", c, len, i);
 						//serial_phex(len);
 					}
-					return;
+					goto cleanup;
 				}
 			}
 			send:
+			// CORE_PIN6_PORTSET = CORE_PIN6_BITMASK;
 			for (int i = 0; i < AUDIO_CHANNELS; i++) {
 				AudioInputUSB::ready[i] = chans[i];
 			}
@@ -281,28 +277,32 @@ void usb_audio_receive_callback(unsigned int len)
 						AudioInputUSB::incoming[j] = NULL;
 					}
 					AudioInputUSB::incoming_count = 0;
-					return;
+					goto cleanup;
 				}
 			}
 			for (int i = 0; i < AUDIO_CHANNELS; i++) {
 				AudioInputUSB::incoming[i] = chans[i];
 			}
 			count = 0;
+			// CORE_PIN6_PORTCLEAR = CORE_PIN6_BITMASK;
 		} else {
 			for (int i = 0; i < AUDIO_CHANNELS; i++) {
 				if (AudioInputUSB::ready[i]) {
-					return;
+					goto cleanup;
 				}
 			}
 			goto send; // recover from buffer overrun
 		}
 	}
 	AudioInputUSB::incoming_count = count;
+	cleanup:
+	CORE_PIN6_PORTCLEAR = CORE_PIN6_BITMASK;
 }
 #endif
 
 void AudioInputUSB::update(void)
 {
+	CORE_PIN5_PORTSET = CORE_PIN5_BITMASK;
 	// printf("AudioInputUSB::update\n");
 	audio_block_t *chans[AUDIO_CHANNELS];
 
@@ -328,13 +328,18 @@ void AudioInputUSB::update(void)
 
 		report_sink_offset(diff);
 		float pressure = get_sink_pressure();
-		float pressure_multiplier = 1.0f + (pressure / (AUDIO_BLOCK_SAMPLES / 2) / 300);
-		if (pressure_multiplier > 1.2f || pressure_multiplier < 0.8f) {
-			char c[100];
-			snprintf(c, 99, "pressure: %.5f, mult: %.5f",
-				pressure, pressure_multiplier);
-			printf("%s\n", c);
-		}
+
+		// snprintf(c, 99, "avg: %.6f, [%d, %d, %d, %d]", pressure,
+		// 	sink_datarate_buf[0], sink_datarate_buf[1], sink_datarate_buf[2], sink_datarate_buf[3]);
+		// printf("%s\n", c);
+
+		float pressure_multiplier = 1.0f + (pressure / (AUDIO_BLOCK_SAMPLES / 2) / 10000);
+		// if (pressure_multiplier > 1.2f || pressure_multiplier < 0.8f) {
+		// 	char c[100];
+		// 	snprintf(c, 99, "pressure: %.5f, mult: %.5f",
+		// 		pressure, pressure_multiplier);
+		// 	printf("%s\n", c);
+		// }
 		feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT * pressure_multiplier / 1000.0f) * 0x1000000;
 		feedback_accumulator += diff;
 	}
@@ -361,6 +366,8 @@ void AudioInputUSB::update(void)
 	// 		release(chans[i]);
 	// 	}
 	// }
+	// CORE_PIN6_PORTCLEAR = CORE_PIN6_BITMASK;
+	CORE_PIN5_PORTCLEAR = CORE_PIN5_BITMASK;
 }
 
 
@@ -498,7 +505,6 @@ void AudioOutputUSB::update(void)
 			
 		}
 	}
-		
 }
 
 
