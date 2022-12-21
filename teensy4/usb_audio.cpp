@@ -400,6 +400,8 @@ void AudioOutputUSB::update(void)
 	
 	if (usb_audio_transmit_setting == 0) // not transmitting: dump all audio data
 	{
+		__disable_irq(); // avoid issues if USB interrupt occurs during this process
+		
 		for (i=0;i<AUDIO_CHANNELS;i++)
 		{
 			if (NULL != chans[i]) 
@@ -416,6 +418,7 @@ void AudioOutputUSB::update(void)
 				ready[i] = NULL;
 			}
 		}
+		__enable_irq();
 		offset_1st = 0;
 	}
 	else
