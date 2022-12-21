@@ -80,9 +80,12 @@ class AudioDebug;  // for testing only, never for public release
 class AudioConnection
 {
 public:
-	AudioConnection(AudioStream &source, AudioStream &destination);
+	AudioConnection();
+	AudioConnection(AudioStream &source, AudioStream &destination)
+		: AudioConnection() { connect(source,destination); }
 	AudioConnection(AudioStream &source, unsigned char sourceOutput,
-		AudioStream &destination, unsigned char destinationInput);
+		AudioStream &destination, unsigned char destinationInput)
+		: AudioConnection() { connect(source,sourceOutput, destination,destinationInput); }
 	friend class AudioStream;
 	~AudioConnection(); 
 	int disconnect(void);
