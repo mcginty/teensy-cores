@@ -972,8 +972,15 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
 
 // Avoid the need to maintain audio-related macros for every build type:
 #if defined(AUDIO_INTERFACE) // signals one of the audio-capable builds is in use
-	#define AUDIO_PACKET_SIZE(sz) (((sz) <= 1024)?(sz):((sz)/2))
-	#define AUDIO_INTERVAL(sz)    (((sz) <= 1024)?4:3)
+
+	// These macros should set the wMaxPacketSize and bInterval values so they're valid,
+	// in particular wMaxPacketSize <= 1024. However this seems to break the audio input
+	// code, so for the moment we go with invalid packet sizes and working audio...
+	//
+	// Change this value to 1024 for correct operation:
+	//                                      VVVVV
+	#define AUDIO_PACKET_SIZE(sz) (((sz) <= 91024)?(sz):((sz)/2))
+	#define AUDIO_INTERVAL(sz)    (((sz) <= 91024)?4:3)
 	
 	// Associated constants and helper functions for USB Audio
 	#define AUDIO_SAMPLE_FREQ(frq) (uint8_t)(frq), (uint8_t)((frq >> 8)), (uint8_t)((frq >> 16))
