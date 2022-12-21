@@ -55,7 +55,6 @@ static void tx_event(transfer_t *t);
 /*static*/ transfer_t sync_transfer __attribute__ ((used, aligned(32)));
 /*static*/ transfer_t tx_transfer __attribute__ ((used, aligned(32)));
 DMAMEM static uint8_t rx_buffer[AUDIO_RX_SIZE] __attribute__ ((aligned(32)));
-DMAMEM static uint8_t tx_buffer[AUDIO_RX_SIZE] __attribute__ ((aligned(32)));
 DMAMEM uint32_t usb_audio_sync_feedback __attribute__ ((aligned(32)));
 
 uint8_t usb_audio_receive_setting=0;
@@ -510,11 +509,13 @@ unsigned int usb_audio_transmit_callback(void)
 	while (len < target) // may take two iterations if not enough in outgoing[]
 	{
 		num = target - len; // number of samples left to transmit
+		__disable_irq();
 		if (NULL == AudioOutputUSB::outgoing[0]) 
 		{
 			// buffer underrun - PC is consuming too quickly
 			memset(usb_audio_transmit_buffer + len, 0, num * AUDIO_CHANNELS * sizeof AudioOutputUSB::outgoing[0]->data[0]);
 			//serial_print("%");
+			__enable_irq();
 			break;
 		}
 		offset = AudioOutputUSB::offset_1st;
@@ -530,6 +531,8 @@ unsigned int usb_audio_transmit_callback(void)
 		interleave_from_blocks((int16_t*) usb_audio_transmit_buffer + len * AUDIO_CHANNELS,
 								AudioOutputUSB::outgoing, AUDIO_CHANNELS, offset,
 								num);
+		__enable_irq();
+		
 		len += num;
 		offset += num;
 		if (offset >= AUDIO_BLOCK_SAMPLES) 
