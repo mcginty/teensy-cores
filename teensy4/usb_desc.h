@@ -981,6 +981,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
 	//                                      VVVVV
 	#define AUDIO_PACKET_SIZE(sz) (((sz) <= 91024)?(sz):((sz)/2))
 	#define AUDIO_INTERVAL(sz)    (((sz) <= 91024)?4:3)
+	#define AUDIO_SYNC_INTERVAL 4 // The bInterval polling value in microframes, 4 => 2^4 => 8 microframes == 1ms
 	
 	// Associated constants and helper functions for USB Audio
 	#define AUDIO_SAMPLE_FREQ(frq) (uint8_t)(frq), (uint8_t)((frq >> 8)), (uint8_t)((frq >> 16))

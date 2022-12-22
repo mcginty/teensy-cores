@@ -1655,7 +1655,7 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       AUDIO_SYNC_ENDPOINT | AUDIO_EP_IN_MASK,   // bEndpointAddress
       0x11,                                     // bmAttributes = isochronous, feedback
       0x04, 0x00,                               // wMaxPacketSize, 4 bytes
-      AUDIO_POLLING_INTERVAL,                   // bInterval, 4 = 2^4 = 8 microframes = 1ms
+      AUDIO_SYNC_INTERVAL,                   	// bInterval, 4 = 2^4 = 8 microframes = 1ms
       0x07,                                     // bRefresh, rate of feedback, as power of 2
       // TODO(jake): what bRefresh feedback rate do we want here?
       0x00,                                     // bSynchAddress
