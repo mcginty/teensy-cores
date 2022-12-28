@@ -1008,10 +1008,14 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
 	#define CS_DESC_SUBTYPE_OUTPUT_TERMINAL 0x03
 	#define CS_DESC_SUBTYPE_FEATURE_UNIT 0x06
 
+	// bEndpointAddress
 	#define AUDIO_EP_IN_MASK 0x80 // A mask used to indicate a specified endpoint ID is an input
-	#define AUDIO_EP_TYPE_ISOC 0x01 // Isochronous Endpoint Type
-	#define AUDIO_EP_TYPE_ADAPTIVE 0x08 // Isochronous Endpoint Type
-	#define AUDIO_EP_TYPE_ASYNC 0x04 // Isochronous Endpoint Type
+	
+	// bmAttributes
+	#define AUDIO_EP_TYPE_ISOC 	   0x01 // Isochronous Transfer Type
+	#define AUDIO_EP_TYPE_ADAPTIVE 0x08 // Adaptive Synchronization Type
+	#define AUDIO_EP_TYPE_ASYNC    0x04 // Asynchronous Synchronization Type
+	
 #endif // defined(AUDIO_INTERFACE)
 
 
