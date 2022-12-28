@@ -972,6 +972,10 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
 
 // Avoid the need to maintain audio-related macros for every build type:
 #if defined(AUDIO_INTERFACE) // signals one of the audio-capable builds is in use
+	#if defined(AUDIO_USB_CHANNEL_COUNT) // channel count defined on command line via Tools menu
+		#undef AUDIO_CHANNELS // ovveride value set in this file
+		#define AUDIO_CHANNELS AUDIO_USB_CHANNEL_COUNT
+	#endif // defined(AUDIO_USB_CHANNEL_COUNT)
 
 	// These macros should set the wMaxPacketSize and bInterval values so they're valid,
 	// in particular wMaxPacketSize <= 1024. However this seems to break the audio input
